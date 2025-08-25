@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SimWishlist Converter</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet">
+    <style>
+  :root { --bg:#0b1220; --panel:#0f172a; --muted:#9aa7bd; --border:#1f2a40; --accent:#7dd3fc; --ok:#34d399; }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue","Noto Sans",sans-serif; background:linear-gradient(180deg,#0b1220,#0a1120); color:#e6eeff}
+  .wrap{max-width:1080px; margin:28px auto; padding:0 16px}
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+  h1{margin:0; font-size:22px}
+  .pill{font-size:12px; padding:4px 8px; border-radius:999px; background:#0c1424; border:1px solid var(--border); color:#b7c4df}
+  .grid{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 14px 30px rgba(0,0,0,.35)}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .btn{appearance:none; border:1px solid var(--border); background:#0f1830; color:#e6eeff; padding:9px 12px; border-radius:12px; cursor:pointer; font-weight:600}
+  .btn:hover{border-color:#38568b}
+  .btn.primary{background:linear-gradient(180deg,#1e3a8a,#1e40af); border-color:#3b82f6}
+  .btn.good{background:linear-gradient(180deg,#065f46,#065f46); border-color:#10b981}
+  .hint{font-size:12px; color:var(--muted)}
+  .drop{border:2px dashed #2a3a58; border-radius:12px; padding:18px; text-align:center; color:var(--muted); background:rgba(12,20,36,.5); margin-top:8px}
+  .drop.drag{border-color:var(--accent); color:#cbeaff}
+  textarea{width:100%; min-height:220px; padding:12px; border-radius:12px; border:1px dashed #2a3a58; background:#0c1424; color:#e6eeff; resize:vertical}
+  input[type="text"]{width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0c1424; color:#e6eeff}
+  .out{min-height:220px}
+  .stats{margin-left:8px}
+  .toast{position:fixed; top:20px; right:20px; background:linear-gradient(180deg,#065f46,#047857); border:1px solid #10b981; border-radius:12px; padding:16px 20px; color:#fff; font-weight:600; box-shadow:0 10px 25px rgba(0,0,0,.5); transform:translateX(400px); transition:transform 0.3s ease-out; z-index:1000; max-width:320px}
+  .toast.show{transform:translateX(0)}
+  .toast .icon{display:inline-block; margin-right:8px; font-size:18px}
+</style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>SimWishlist Converter</h1>
+        <span class="pill">All client-side • Works on GitHub Pages</span>
+      </header>
+
+      <div class="grid">
+        <!-- LEFT -->
+        <div class="card">
+          <div class="row">
+            <button id="open" class="btn">Open JSON file…</button>
+            <input id="file" type="file" accept=".json,application/json" hidden>
+            <button id="paste" class="btn">Paste JSON</button>
+            <button id="fetchUrl" class="btn">Fetch from URL</button>
+            <span class="hint">Drag & drop also works ↓</span>
+          </div>
+          <div id="drop" class="drop">Drop your Raidbots Droptimizer JSON
+            here</div>
+
+          <div style="margin-top:10px">
+            <label class="hint">Or fetch from Raidbots sim report URL:</label>
+            <input id="raidbotsUrl" type="text"
+              placeholder="https://www.raidbots.com/simbot/report/..."
+              style="margin-bottom:8px">
+            <div class="hint" style="margin-bottom:8px">💡 Paste your Raidbots
+              sim report URL - we'll automatically fetch the data.json</div>
+          </div>
+
+          <div style="margin-top:10px">
+            <label class="hint">Or paste JSON manually:</label>
+            <textarea id="raw"
+              placeholder="{ ... raidbots droptimizer json ... }"></textarea>
+          </div>
+
+          <div style="margin-top:10px">
+            <label class="hint">Spec label (autofills):</label>
+            <input id="spec" type="text" placeholder="Marksmanship Hunter — ST"
+              value="unnamed profile">
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <label><input id="includeScores" type="checkbox" checked> Include %
+              scores when available</label>
+            <label><input id="dedupe" type="checkbox" checked> Dedupe
+              items</label>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <button id="convert" class="btn primary">Convert to SIMWISH</button>
+            <button id="debug" class="btn" style="margin-left:8px">Debug Data</button>
+            <label style="margin-left:12px"><input id="autoConvert"
+                type="checkbox" checked> Auto-convert</label>
+            <label style="margin-left:12px"><input id="autoCopy" type="checkbox"
+                checked> Auto-copy</label>
+            <span id="stats" class="hint stats"></span>
+          </div>
+          <div class="hint" style="margin-top:8px">💡 Tip: Works with
+            Droptimizer data from any content - dungeons, raids, or mixed
+            scenarios. Now includes bonus ID handling for enhanced item parsing.</div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card">
+          <div class="row">
+            <button id="copy" class="btn good">Copy output</button>
+            <button id="download" class="btn">Download .simwish.txt</button>
+          </div>
+          <textarea id="out" class="out"
+            placeholder="SIMWISH output will appear here…"></textarea>
+          <div class="hint" style="margin-top:6px">Line 2 contains <code>#
+              base_dps=12345.6</code> so the addon can show "+X.X dps (+Y.Y%)".
+            Works with any Droptimizer content. The <code>!Links</code> section now includes bonus IDs for enhanced item parsing.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast">
+      <span class="icon">📋</span>
+      <span id="toastMessage">SIMWISH copied to clipboard!</span>
+    </div>
+
+    <script>
+const $ = (s)=>document.querySelector(s);
+const state = { raw:"", auto:false };
+
+// ---------- File / Paste / Drop
+$("#open").onclick = ()=> $("#file").click();
+$("#file").onchange = async (e)=>{ const f=e.target.files[0]; if(!f) return; setRaw(await f.text()); };
+$("#paste").onclick = async ()=>{ try{ setRaw(await navigator.clipboard.readText()); }catch{ alert("Clipboard permissions blocked"); } };
+$("#fetchUrl").onclick = async ()=> fetchFromUrl();
+const drop = $("#drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.remove("drag");}));
+drop.addEventListener("drop", async e=>{ const f=e.dataTransfer.files?.[0]; if(!f) return; setRaw(await f.text()); });
+$("#raw").addEventListener("input", (e)=> setRaw(e.target.value));
+$("#raidbotsUrl").addEventListener("keypress", (e)=> { if(e.key === "Enter") fetchFromUrl(); });
+
+function setRaw(text){ 
+  $("#raw").value = text; 
+  state.raw = text; 
+  tryAutofillLabel(text); 
+  
+  // Auto-convert if enabled and we have valid JSON
+  if($("#autoConvert").checked && text.trim()) {
+    try {
+      JSON.parse(text.trim());
+      // Small delay to let UI update, then convert
+      setTimeout(() => runConvert(), 100);
+    } catch(e) {
+      // Invalid JSON, don't auto-convert
+    }
+  }
+}
+
+// ---------- Toast notifications
+function showToast(message, duration = 3000) {
+  const toast = $("#toast");
+  const messageEl = $("#toastMessage");
+  messageEl.textContent = message;
+  toast.classList.add("show");
+  
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, duration);
+}
+
+async function copyToClipboardWithToast(text, message = "SIMWISH copied to clipboard!") {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(message);
+    return true;
+  } catch(error) {
+    console.error("Copy failed:", error);
+    showToast("❌ Failed to copy to clipboard", 2000);
+    return false;
+  }
+}
+
+// ---------- URL Fetching
+async function fetchFromUrl(){
+  const url = $("#raidbotsUrl").value.trim();
+  if(!url){ alert("Please enter a Raidbots URL"); return; }
+  
+  // Validate and transform URL
+  let dataUrl;
+  try {
+    const urlObj = new URL(url);
+    if(!urlObj.hostname.includes('raidbots.com')){
+      alert("Please enter a valid Raidbots URL (must contain raidbots.com)");
+      return;
+    }
+    
+    // Transform the URL pattern for data.json
+    if(url.endsWith('/data.json')){
+      dataUrl = url;
+    } else {
+      // Convert from /simbot/report/ID to /reports/ID/data.json
+      const reportMatch = url.match(/\/simbot\/report\/([^\/]+)/);
+      if(reportMatch) {
+        const reportId = reportMatch[1];
+        dataUrl = `https://www.raidbots.com/reports/${reportId}/data.json`;
+      } else {
+        // Fallback: try appending /data.json
+        dataUrl = url.endsWith('/') ? url + 'data.json' : url + '/data.json';
+      }
+    }
+  } catch(e) {
+    alert("Please enter a valid URL");
+    return;
+  }
+  
+  // Update button state
+  const btn = $("#fetchUrl");
+  const originalText = btn.textContent;
+  btn.textContent = "Fetching...";
+  btn.disabled = true;
+  
+  try {
+    const response = await fetch(dataUrl);
+    if(!response.ok){
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.text();
+    setRaw(data);
+    
+    // Update UI feedback
+    const autoConvertText = $("#autoConvert").checked ? " (auto-converting...)" : "";
+    $("#stats").textContent = `✅ Successfully fetched data from ${dataUrl}${autoConvertText}`;
+    
+  } catch(error) {
+    console.error("Fetch error:", error);
+    let errorMsg = "Failed to fetch data from URL";
+    
+    if(error.name === 'TypeError' && error.message.includes('CORS')){
+      errorMsg = "CORS error: Raidbots may not allow direct access. Try downloading the JSON manually.";
+    } else if(error.message.includes('404')){
+      errorMsg = "Data not found. Make sure the sim report exists and is public.";
+    } else if(error.message.includes('403')){
+      errorMsg = "Access denied. The sim report might be private.";
+    } else {
+      errorMsg += `: ${error.message}`;
+    }
+    
+    alert(errorMsg);
+    $("#stats").textContent = `❌ ${errorMsg}`;
+  } finally {
+    // Restore button state
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+// ---------- Helpers
+function getNum(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
+function titlecase(s){ return String(s||'').replace(/[_-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
+function deepWalk(root, fn){ const st=[root]; let guard=0; while(st.length && guard<120000){ const cur=st.pop(); guard++; try{fn(cur)}catch(e){} if(Array.isArray(cur)){ for(const it of cur) if(it && (typeof it==='object'||Array.isArray(it))) st.push(it); continue; } if(cur && typeof cur==='object'){ for(const v of Object.values(cur)) if(v && (typeof v==='object'||Array.isArray(v))) st.push(v); } } }
+function parseItemIdFromResultName(name){ const parts=String(name).split('/'); for(const p of parts){ if(/^\d{5,}$/.test(p)) return Number(p); } return null; }
+function idFromAny(obj){ if(typeof obj==='number') return obj; if(!obj||typeof obj!=='object') return null; if(Number.isFinite(obj.id))return obj.id; if(Number.isFinite(obj.item))return obj.item; if(Number.isFinite(obj.item_id))return obj.item_id; if(obj.item&&typeof obj.item==='object'&&Number.isFinite(obj.item.id))return obj.id; if(obj.data&&typeof obj.data==='object'&&Number.isFinite(obj.data.id))return obj.id; if(Number.isFinite(obj.wowhead_id))return obj.wowhead_id; if(Number.isFinite(obj.wowheadId))return obj.wowheadId; return null; }
+
+// Enhanced function to extract item links with bonus ID handling
+function extractGlobalLinksFromText(raw){
+  const map = new Map();
+  if(!raw || typeof raw !== 'string') return map;
+  
+  // Full link e.g. |cffa335ee|Hitem:207122:...|h[Name]|h|r
+  const rx = /\|c[0-9a-fA-F]{8}\|Hitem:(\d+):[^|]*\|h\[[^\]]*\]\|h\|r/g;
+  let m;
+  while((m = rx.exec(raw))){
+    const id = Number(m[1]);
+    const link = m[0];
+    if(Number.isFinite(id) && !map.has(id)) map.set(id, link);
+  }
+  return map;
+}
+
+// Function to create a unique key for items with different bonus IDs
+function createItemKey(id, bonuses = []){
+  if(bonuses.length === 0) return id.toString();
+  return `${id}_${bonuses.sort((a,b) => a-b).join('_')}`;
+}
+
+// Generate item links from Raidbots Droptimizer data
+function generateLinksFromRaidbotsData(root, defaultLevel = 80){
+  const map = new Map();
+  const bonusMap = new Map();
+  
+  if(!root || typeof root !== 'object') return map;
+  
+  // Try to get player level from the data
+  const playerLevel = root?.sim?.players?.[0]?.level || defaultLevel;
+  
+  // Extract items from droptimizer data
+  const items = root?.simbot?.meta?.rawFormData?.droptimizerItems || [];
+  
+  for(const itemData of items){
+    const item = itemData?.item;
+    if(!item || !item.id) continue;
+    
+    const id = Number(item.id);
+    if(!Number.isFinite(id)) continue;
+    
+    // Extract bonus IDs if available
+    let bonuses = [];
+    if(item.bonusIds && Array.isArray(item.bonusIds)){
+      bonuses = item.bonusIds.filter(b => Number.isFinite(b));
+    } else if(item.bonus_id && Array.isArray(item.bonus_id)){
+      bonuses = item.bonus_id.filter(b => Number.isFinite(b));
+    } else if(item.bonus_id && typeof item.bonus_id === 'string'){
+      // Handle comma-separated bonus IDs
+      bonuses = item.bonus_id.split(/[,/]/).map(b => Number(b.trim())).filter(b => Number.isFinite(b));
+    }
+    
+    // Extract other item properties
+    const enchant = Number(item.enchantId || item.enchant_id || 0) || 0;
+    const gems = [];
+    
+    // Handle gem IDs
+    if(item.gemIds && Array.isArray(item.gemIds)){
+      gems.push(...item.gemIds.filter(g => Number.isFinite(g)));
+    } else if(item.gem_id && Array.isArray(item.gem_id)){
+      gems.push(...item.gem_id.filter(g => Number.isFinite(g)));
+    } else if(item.gem_id && typeof item.gem_id === 'string'){
+      gems.push(...item.gem_id.split(/[,/]/).map(g => Number(g.trim())).filter(g => Number.isFinite(g)));
+    }
+    
+    // Pad gems to 4 slots
+    while(gems.length < 4) gems.push(0);
+    
+    // Create proper WoW item link
+    const linkParts = [
+      id,                    // item ID
+      enchant,               // enchant ID
+      gems[0] || 0,         // gem 1
+      gems[1] || 0,         // gem 2
+      gems[2] || 0,         // gem 3
+      gems[3] || 0,         // gem 4
+      0,                     // suffix ID
+      0,                     // unique ID
+      playerLevel,           // item level
+      0,                     // spec ID
+      0,                     // upgrade ID
+      0                      // instance difficulty
+    ];
+    
+    // Add bonus IDs if present
+    if(bonuses.length > 0){
+      linkParts.push(bonuses.length, ...bonuses);
+    }
+    
+    const linkString = linkParts.join(":");
+    const link = `|cffa335ee|Hitem:${linkString}|h[Item ${id}]|h|r`;
+    
+    // Handle items with different bonus ID combinations
+    if(bonuses.length > 0){
+      const itemKey = createItemKey(id, bonuses);
+      if(!bonusMap.has(itemKey)){
+        bonusMap.set(itemKey, { id, link, bonuses });
+        map.set(id, link);
+      }
+    } else {
+      if(!map.has(id)) map.set(id, link);
+    }
+  }
+  
+  // Log bonus ID handling for debugging
+  if(bonusMap.size > 0){
+    console.log(`Generated ${bonusMap.size} unique item configurations with bonus IDs from Raidbots data`);
+    for(const [key, item] of bonusMap.entries()){
+      if(item.bonuses.length > 0){
+        console.log(`Item ${item.id} with bonus IDs [${item.bonuses.join(', ')}]: ${key}`);
+      }
+    }
+  }
+  
+  return map;
+}
+
+// Fallback: Generate basic item links from simulation results
+function generateBasicLinksFromResults(root, defaultLevel = 80){
+  const map = new Map();
+  
+  if(!root || typeof root !== 'object') return map;
+  
+  const playerLevel = root?.sim?.players?.[0]?.level || defaultLevel;
+  const results = root?.sim?.profilesets?.results || [];
+  
+  for(const result of results){
+    const id = parseItemIdFromResultName(result?.name);
+    if(!id || !Number.isFinite(id)) continue;
+    
+    // Create basic item link without bonus IDs
+    const linkParts = [
+      id,                    // item ID
+      0,                     // enchant ID
+      0, 0, 0, 0,           // gems
+      0,                     // suffix ID
+      0,                     // unique ID
+      playerLevel,           // item level
+      0,                     // spec ID
+      0,                     // upgrade ID
+      0                      // instance difficulty
+    ];
+    
+    const linkString = linkParts.join(":");
+    const link = `|cffa335ee|Hitem:${linkString}|h[Item ${id}]|h|r`;
+    
+    if(!map.has(id)) map.set(id, link);
+  }
+  
+  if(map.size > 0){
+    console.log(`Generated ${map.size} basic item links from simulation results`);
+  }
+  
+  return map;
+}
+
+// Build WoW chat links from SimC gear rows in raw text with enhanced bonus ID handling
+function extractLinksFromSimcGear(raw, defaultLevel = 80){
+  const map = new Map();
+  const bonusMap = new Map(); // Track items with different bonus ID combinations
+  
+  if(typeof raw !== "string" || !raw) return map;
+
+  // Try to pick player level from the SimC header, fallback to default
+  const levelMatch = raw.match(/\nlevel=(\d+)/);
+  const playerLevel = levelMatch ? Number(levelMatch[1]) : defaultLevel;
+
+  // Match lines like: head=,id=237646,gem_id=...,bonus_id=...
+  const lineRe = /^(?:[a-z_]+)=\s*,id=(\d+)([^#\n]*)/gmi;
+  let m;
+  while ((m = lineRe.exec(raw))) {
+    const id = Number(m[1]);
+    const rest = m[2] || "";
+
+    // Parse the trailing k=v pairs
+    const kv = Object.create(null);
+    for (const seg of rest.split(",")) {
+      if (!seg) continue;
+      const i = seg.indexOf("=");
+      if (i > 0) {
+        const k = seg.slice(0, i).trim();
+        const v = seg.slice(i + 1).trim();
+        kv[k] = v;
+      }
+    }
+
+    // Pull common fields
+    const enchant = Number(kv.enchant_id || kv.enchant || 0) || 0;
+    const gems = String(kv.gem_id || "")
+      .split("/")
+      .filter(Boolean)
+      .map(Number);
+    while (gems.length < 4) gems.push(0); // pad to 4 sockets
+
+    const bonuses = String(kv.bonus_id || "")
+      .split("/")
+      .filter(Boolean)
+      .map(Number);
+    const bonusCount = bonuses.length;
+
+    // Create proper WoW item link with bonus IDs
+    // Format: |cffa335ee|Hitem:itemId:enchant:gem1:gem2:gem3:gem4:suffix:unique:linkLevel:specID:upgradeId:instanceDiff:bonusCount:bonus1:bonus2:...|h[ItemName]|h|r
+    
+    // Default values for missing fields
+    const suffix = 0, unique = 0, specID = 0, upgradeId = 0, instanceDiff = 0;
+    
+    // Build the link structure
+    const linkParts = [
+      id,                    // item ID
+      enchant,               // enchant ID
+      gems[0] || 0,         // gem 1
+      gems[1] || 0,         // gem 2
+      gems[2] || 0,         // gem 3
+      gems[3] || 0,         // gem 4
+      suffix,                // suffix ID
+      unique,                // unique ID
+      playerLevel,           // item level
+      specID,                // spec ID
+      upgradeId,             // upgrade ID
+      instanceDiff           // instance difficulty
+    ];
+    
+    // Add bonus IDs if present
+    if (bonusCount > 0) {
+      linkParts.push(bonusCount, ...bonuses);
+    }
+    
+    // Create the link string
+    const linkString = linkParts.join(":");
+    
+    // Use epic quality color (|cffa335ee) as default, but this will be overridden by the game
+    // The game will automatically apply the correct quality color based on the item
+    const link = `|cffa335ee|Hitem:${linkString}|h[Item ${id}]|h|r`;
+
+    // Handle items with different bonus ID combinations
+    if (bonusCount > 0) {
+      const itemKey = createItemKey(id, bonuses);
+      if (!bonusMap.has(itemKey)) {
+        bonusMap.set(itemKey, { id, link, bonuses });
+        map.set(id, link); // Use the first occurrence for the base item ID
+      }
+    } else {
+      // No bonus IDs, just store normally
+      if (!map.has(id)) map.set(id, link);
+    }
+  }
+  
+  // Log bonus ID handling for debugging
+  if (bonusMap.size > 0) {
+    console.log(`Generated ${bonusMap.size} unique item configurations with bonus IDs`);
+    for (const [key, item] of bonusMap.entries()) {
+      if (item.bonuses.length > 0) {
+        console.log(`Item ${item.id} with bonus IDs [${item.bonuses.join(', ')}]: ${key}`);
+      }
+    }
+  }
+  
+  return map;
+}
+// ---------- Autofill label: "Spec Class — Build"
+function tryAutofillLabel(raw){
+  let data; try{ data=JSON.parse(raw); }catch{ return; }
+  const spec = findFirstStringByKey(data, /(spec|specialization|active_spec_name|specName)$/i);
+  const clazz = findFirstStringByKey(data, /(class|player_class|className)$/i);
+  const rawText = findFirstStringByKey(data, /(rawFormData|raw_form|form).*(text|payload)$/i) || "";
+  const talentsUsed = (rawText.match(/\ntalents=([^\n]+)/)||[])[1]?.trim() || "";
+  let build=null;
+  const matches=[...rawText.matchAll(/#\s*Saved Loadout:\s*([^\n]+)\n#\s*talents=([^\n]+)/g)];
+  const hit = matches.find(m => (m[2]||'').trim() === talentsUsed);
+  if(hit) build = hit[1].trim();
+  const parts=[]; if(spec) parts.push(titlecase(spec)); if(clazz) parts.push(titlecase(clazz));
+  let label = parts.join(" ");
+  if(build) label = (label?label+" — ":"")+build;
+  if(!label) label = "unnamed profile";
+  if(!state.auto || $("#spec").value === "unnamed profile" || !$("#spec").value.trim()){ $("#spec").value = label; state.auto = true; }
+}
+function findFirstStringByKey(obj, keyRe){
+  const st=[obj]; let guard=0;
+  while(st.length && guard<40000){ const cur=st.pop(); guard++;
+    if(Array.isArray(cur)){ for(const it of cur) if(it && typeof it==='object') st.push(it); continue; }
+    if(cur && typeof cur==='object'){
+      for(const [k,v] of Object.entries(cur)){
+        if(typeof v==='string' && keyRe.test(k)) return v;
+        if(v && typeof v==='object') st.push(v);
+      }
+    }
+  }
+  return null;
+}
+
+// ---------- Build instanceId → name; extract per-dungeon items (Droptimizer-aware)
+function buildInstanceMap(root){ 
+  const byId={}; 
+  
+  // First, extract actual instance names from the data
+  deepWalk(root, (o)=>{ 
+    if(!o||typeof o!=='object') return; 
+    if(o.type&&(o.type==='dungeon'||o.type==='megadungeon'||o.type==='raid')&&typeof o.id==='number'&&o.name){ 
+      byId[o.id]=o.name; 
+    } 
+    if(Array.isArray(o.dungeons)){ 
+      for(const d of o.dungeons){ 
+        if(d&&typeof d.id==='number'&&d.name) byId[d.id]=d.name; 
+      } 
+    } 
+  }); 
+  
+  // Check if this is a droptimizer run by looking for droptimizerItems
+  const isDroptimizer = root?.simbot?.meta?.rawFormData?.droptimizerItems && 
+                        root?.simbot?.meta?.rawFormData?.droptimizerItems.length > 0;
+  
+  // For droptimizer runs, we should NOT use generic negative ID mappings
+  // as these represent actual dungeon content, not special sources
+  if (!isDroptimizer) {
+    // Only add generic mappings for non-droptimizer runs
+    byId[-66] = "Crafted Items"; 
+    byId[-69] = "Delves"; 
+    byId[-77] = "Great Vault"; 
+    byId[-32] = "World Content"; 
+    byId[-1] = "Other Sources";
+  }
+  
+  return byId; 
+}
+
+function extractGroups(root){
+  const instName = buildInstanceMap(root);
+  const out = new Map();
+  const add=(name,id)=>{ if(!name||!id) return; const set=out.get(name)||new Set(); set.add(id); out.set(name,set); };
+  
+  const items = root?.simbot?.meta?.rawFormData?.droptimizerItems || [];
+  const isDroptimizer = items.length > 0;
+  
+  console.log(`Extracting groups: ${items.length} droptimizer items, isDroptimizer: ${isDroptimizer}`);
+  console.log("Instance name mapping:", instName);
+  
+  for(const ent of items){
+    const id = idFromAny(ent?.item); 
+    
+    // For droptimizer items, we need to handle different data structures
+    let categoryName = null;
+    
+    // Method 1: Check if the item has a direct instanceId field
+    if (ent.instanceId && typeof ent.instanceId === 'number') {
+      // Skip instanceId -1 as it represents world content
+      if (ent.instanceId !== -1) {
+        categoryName = instName[ent.instanceId];
+        if (!categoryName && isDroptimizer) {
+          categoryName = getCategoryNameForInstanceId(ent.instanceId);
+        }
+      }
+    }
+    
+    // Method 2: Parse the ent.id string for instance information
+    if (!categoryName && ent.id && typeof ent.id === 'string') {
+      const parts = ent.id.split('/');
+      if (parts.length >= 1) {
+        const instanceId = parseInt(parts[0]);
+        if (!isNaN(instanceId) && instanceId !== -1) {
+          categoryName = instName[instanceId];
+          if (!categoryName && isDroptimizer) {
+            categoryName = getCategoryNameForInstanceId(instanceId);
+          }
+        }
+      }
+    }
+    
+    // Method 3: Check if the item has source information (this is the main method for your data)
+    if (!categoryName && ent.item && ent.item.sources && Array.isArray(ent.item.sources)) {
+      for (const source of ent.item.sources) {
+        if (source.instanceId && typeof source.instanceId === 'number') {
+          // Skip instanceId -1 as it represents world content
+          if (source.instanceId !== -1) {
+            categoryName = instName[source.instanceId];
+            if (!categoryName && isDroptimizer) {
+              categoryName = getCategoryNameForInstanceId(source.instanceId);
+            }
+            if (categoryName) {
+              console.log(`Item ${id} sourced from instance ${source.instanceId} (${categoryName})`);
+              break;
+                            }
+          }
+        }
+      }
+    }
+    
+    // Method 4: Check if the item has a location or dungeon field
+    if (!categoryName && ent.item && ent.item.location) {
+      const location = ent.item.location;
+      if (typeof location === 'string') {
+        // Try to extract dungeon name from location
+        if (location.toLowerCase().includes('dungeon')) {
+          categoryName = 'Dungeons';
+        } else if (location.toLowerCase().includes('raid')) {
+          categoryName = 'Raids';
+        } else if (location.toLowerCase().includes('delve')) {
+          categoryName = 'Delves';
+        }
+      }
+    }
+    
+    if (categoryName && id) {
+      add(categoryName, id);
+      console.log(`Item ${id} mapped to category: ${categoryName}`);
+    } else if (id) {
+      // If we can't determine the category, add to a generic category
+      add('Other Content', id);
+      console.log(`Item ${id} mapped to generic category: Other Content`);
+    }
+  }
+  
+  console.log("Final groups:", [...out.entries()].map(([name,set])=>({name, ids:[...set]})));
+  
+  // if nothing, leave empty; Quick Scan is available as fallback
+  return [...out.entries()].map(([name,set])=>({name, ids:[...set]}));
+}
+
+// Helper function to get category names for instance IDs
+function getCategoryNameForInstanceId(instanceId) {
+  if (instanceId === -69) {
+    return "Delves";
+  } else if (instanceId === -77) {
+    return "Great Vault";
+  } else if (instanceId === -32) {
+    return "World Content";
+  } else if (instanceId === -66) {
+    return "Crafted Items";
+  } else if (instanceId === -1) {
+    return "Other Sources";
+  } else if (instanceId < 0) {
+    // For other negative IDs, create a descriptive name
+    return `Instance ${instanceId}`;
+  } else if (instanceId > 0) {
+    // For positive IDs, this is likely a dungeon or raid
+    return `Dungeon ${instanceId}`;
+  }
+  return null;
+}
+
+// ---------- Extract catalyst relationships
+function extractCatalysts(root, best){
+  const catalysts = new Map(); // sourceItemID -> [catalystItems]
+  let totalObjects = 0;
+  let catalystTaggedItems = 0;
+  let validCatalystItems = 0;
+  
+  deepWalk(root, (obj) => {
+    if(!obj || typeof obj !== 'object') return;
+    totalObjects++;
+    
+    // Debug: Check if we find any catalyst tags
+    if(obj.tags && Array.isArray(obj.tags) && obj.tags.includes('catalyst')){
+      catalystTaggedItems++;
+      console.log("Found catalyst tagged item:", obj);
+    }
+    
+    // Look for items with catalyst tag and sourceItem
+    if(obj.tags && Array.isArray(obj.tags) && obj.tags.includes('catalyst') && obj.sourceItem && obj.sourceItem.id && obj.id){
+      validCatalystItems++;
+      const sourceId = obj.sourceItem.id;
+      const catalystId = obj.id;
+      
+      console.log(`Found valid catalyst: source ${sourceId} -> catalyst ${catalystId}`);
+      
+      // Get scores for both source and catalyst items
+      const sourceScore = best.get(sourceId) || 0;
+      const catalystScore = best.get(catalystId) || 0;
+      
+      if(!catalysts.has(sourceId)){
+        catalysts.set(sourceId, []);
+      }
+      catalysts.get(sourceId).push({
+        catalystId: catalystId,
+        catalystName: obj.name || `Item ${catalystId}`,
+        sourceId: sourceId,
+        sourceName: obj.sourceItem.name || `Item ${sourceId}`,
+        sourceScore: sourceScore,
+        catalystScore: catalystScore,
+        isBetterWhenCatalyzed: catalystScore > sourceScore
+      });
+    }
+  });
+  
+  console.log(`Catalyst extraction stats: ${totalObjects} objects, ${catalystTaggedItems} catalyst-tagged, ${validCatalystItems} valid catalysts, ${catalysts.size} unique sources`);
+  return catalysts;
+}
+
+// ---------- Compute % upgrades vs baseline
+function computeUpgrades(root){
+  const base = getNum(root?.sim?.players?.[0]?.collected_data?.dps?.mean);
+  const arr = root?.sim?.profilesets?.results || [];
+  const best = new Map();
+  for(const r of arr){
+    const id = parseItemIdFromResultName(r?.name);
+    const mean = getNum(r?.mean);
+    if(!id || !mean || !base) continue;
+    const pct = (mean - base)/base * 100;
+    if(!best.has(id) || pct > best.get(id)) best.set(id, pct);
+  }
+  return { base, best };
+}
+
+// ---------- SIMWISH builder
+function toSimwish({groups, best, base, includeScores, single, dedupe, specLabel, catalysts, linksGlobal}){
+  const now = new Date().toISOString();
+  const spec = (specLabel||"").trim() || "unnamed profile";
+  const lines = [`SIMWISH v1 ${now} ${spec}`, `# base_dps=${base||0}`];
+  
+  // Add catalyst data if available - simple format like items
+  if(catalysts && catalysts.size > 0){
+    const catalystPairs = [];
+    for(const [sourceId, catalystList] of catalysts.entries()) {
+      // Include items that are better when catalyzed
+      const worthwhileCatalysts = catalystList.filter(c => c.isBetterWhenCatalyzed);
+      if(worthwhileCatalysts.length > 0) {
+        // Simple format: sourceId:catalystId
+        catalystPairs.push(`${sourceId}:${worthwhileCatalysts[0].catalystId}`);
+      }
+    }
+    
+    if(catalystPairs.length > 0) {
+      const catalystLine = `!CatalystData	${catalystPairs.join(",")}!`;
+      lines.push(catalystLine);
+      console.log("Simple catalyst data being exported:", catalystPairs.join(","));
+      console.log("Full catalyst line:", catalystLine);
+    } else {
+      console.log("No catalyst pairs found - no catalyst data will be exported");
+    }
+  }
+
+    if(linksGlobal && linksGlobal.size){
+    const pairs = [];
+    for(const [id, link] of linksGlobal.entries()){
+      pairs.push(`${id}=${link}`);
+    }
+    lines.push(`!Links\t${pairs.join(",")}!`);
+  }
+
+  let total=0, lists=0;
+
+  if(single){
+    const map = new Map();
+    for(const g of groups){
+      for(const id of g.ids){
+        const pct = best.get(id) || 0;
+        if(pct>0){
+          const prev = map.get(id) ?? -Infinity;
+          map.set(id, Math.max(prev, pct));
+        }
+      }
+    }
+    
+    // Add catalyst source items that lead to wishlist items
+    if(catalysts && catalysts.size > 0){
+      for(const [sourceId, catalystList] of catalysts.entries()) {
+        for(const catalyst of catalystList) {
+          // If the catalyst result is in our wishlist, add the source item too
+          if(map.has(catalyst.catalystId) && catalyst.isBetterWhenCatalyzed) {
+            const sourceScore = catalyst.sourceScore || -1; // Use negative score to show it's for catalyst
+            map.set(sourceId, Math.max(map.get(sourceId) || -Infinity, sourceScore));
+            console.log(`Added catalyst source ${sourceId} (score: ${sourceScore}) because catalyst ${catalyst.catalystId} is in wishlist`);
+          }
+        }
+      }
+    }
+    
+    let arr = [...map.entries()].sort((a,b)=>(b[1]||0)-(a[1]||0));
+    if(dedupe){ // already deduped; noop
+    }
+    total = arr.length; lists = arr.length ? 1 : 0;
+    if(arr.length){
+      const row = arr.map(([id,pct]) => includeScores ? `${id}:${pct.toFixed(1)}` : String(id)).join(",");
+      lines.push(`All Dungeons	${row}`); // real tab
+    }
+  } else {
+    for(const g of groups){
+      let arr = g.ids.map(id => [id, best.get(id)||0]).filter(([,pct]) => pct>0);
+      
+      // Add catalyst source items for this group
+      if(catalysts && catalysts.size > 0){
+        const groupItemIds = new Set(g.ids);
+        for(const [sourceId, catalystList] of catalysts.entries()) {
+          for(const catalyst of catalystList) {
+            // If the catalyst result is in this group's wishlist, add the source item too
+            if(groupItemIds.has(catalyst.catalystId) && catalyst.isBetterWhenCatalyzed) {
+              const sourceScore = catalyst.sourceScore || -1; // Use negative score to show it's for catalyst
+              arr.push([sourceId, sourceScore]);
+              console.log(`Added catalyst source ${sourceId} (score: ${sourceScore}) to ${g.name} because catalyst ${catalyst.catalystId} is in group`);
+            }
+          }
+        }
+      }
+      
+      arr.sort((a,b)=>(b[1]||0)-(a[1]||0));
+      if(dedupe){
+        const seen=new Set(); arr = arr.filter(([id]) => !seen.has(id) && (seen.add(id), true));
+      }
+      if(arr.length){
+        const row = arr.map(([id,pct]) => includeScores ? `${id}:${pct.toFixed(1)}` : String(id)).join(",");
+        lines.push(`${g.name}	${row}`); // real tab
+        total += arr.length; lists++;
+      }
+    }
+  }
+
+  return { text: lines.join("\n"), total, lists, base };
+}
+
+// ---------- Actions
+function runConvert(idsOnly=false){
+  const raw = ($("#raw").value || state.raw || "").trim();
+  if(!raw){ alert("Paste or drop your JSON first."); return; }
+  let data; try{ data=JSON.parse(raw); }catch(e){ alert("Invalid JSON"); return; }
+
+  const t0 = performance.now();
+  const specLabel = $("#spec").value;
+  const { base, best } = computeUpgrades(data);
+  const groups = extractGroups(data);
+  const catalysts = extractCatalysts(data, best); // Pass best scores to extractCatalysts
+  const linksGlobal = extractGlobalLinksFromText(raw);
+const linksFromSimc = extractLinksFromSimcGear(raw);
+const linksFromRaidbots = generateLinksFromRaidbotsData(data);
+
+for (const [id, link] of linksFromSimc.entries()) {
+  if (!linksGlobal.has(id)) linksGlobal.set(id, link);
+}
+for (const [id, link] of linksFromRaidbots.entries()) {
+  if (!linksGlobal.has(id)) linksGlobal.set(id, link);
+}
+
+// Fallback: If we still don't have any links, generate basic ones from results
+if(linksGlobal.size === 0){
+  const basicLinks = generateBasicLinksFromResults(data);
+  for (const [id, link] of basicLinks.entries()) {
+    linksGlobal.set(id, link);
+  }
+  console.log(`Fallback: Generated ${basicLinks.size} basic item links from simulation results`);
+}
+
+  const res = toSimwish({
+    groups, best, base,
+    includeScores: $("#includeScores").checked,
+    single: false,
+    dedupe: $("#dedupe").checked,
+    specLabel,
+    catalysts,
+    linksGlobal
+  });
+  const t1 = performance.now();
+  $("#out").value = res.text;
+  const catalystCount = catalysts ? catalysts.size : 0;
+  const linksCount = linksGlobal ? linksGlobal.size : 0;
+  
+  // Count items with bonus IDs for better feedback
+  let bonusIDCount = 0;
+  for (const [id, link] of linksGlobal.entries()) {
+    if (link.includes(':') && link.match(/:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:\d+:/)) {
+      bonusIDCount++;
+    }
+  }
+  
+  const bonusIDText = bonusIDCount > 0 ? ` • ${bonusIDCount} with bonus IDs` : '';
+  $("#stats").textContent = `Done in ${(t1-t0).toFixed(0)} ms • ${res.total} item IDs • ${res.lists} list(s) • ${catalystCount} catalyst mappings • ${linksCount} link(s)${bonusIDText} • base DPS ${res.base||0}`;
+
+  // Auto-copy if enabled
+  if($("#autoCopy").checked && res.text.trim()) {
+    setTimeout(() => {
+      copyToClipboardWithToast(res.text, "🎮 SIMWISH ready! Copied to clipboard - import in-game now!");
+    }, 200);
+  }
+}
+
+// Test function for bonus ID handling (call from console)
+function testBonusIDHandling() {
+  const testSimc = `
+head=,id=237646,enchant_id=0,gem_id=0/0/0/0,bonus_id=865/788/788
+chest=,id=237647,enchant_id=0,gem_id=0/0/0/0,bonus_id=865/788
+legs=,id=237648,enchant_id=0,gem_id=0/0/0/0
+  `;
+  
+  console.log("Testing bonus ID handling...");
+  const links = extractLinksFromSimcGear(testSimc, 80);
+  
+  console.log("Generated links:");
+  for (const [id, link] of links.entries()) {
+    console.log(`Item ${id}: ${link}`);
+  }
+  
+  return links;
+}
+
+// Debug function to inspect Raidbots data structure
+function debugRaidbotsData() {
+  const raw = ($("#raw").value || state.raw || "").trim();
+  if(!raw) {
+    console.log("No data loaded. Please paste or load JSON first.");
+    return;
+  }
+  
+  try {
+    const data = JSON.parse(raw);
+    console.log("=== Raidbots Data Structure Analysis ===");
+    
+    // Check for droptimizer items
+    const droptimizerItems = data?.simbot?.meta?.rawFormData?.droptimizerItems;
+    if(droptimizerItems) {
+      console.log(`Found ${droptimizerItems.length} droptimizer items`);
+      
+      if(droptimizerItems.length > 0) {
+        const firstItem = droptimizerItems[0];
+        console.log("First item structure:", firstItem);
+        
+        if(firstItem?.item) {
+          console.log("Item data:", firstItem.item);
+          console.log("Item ID:", firstItem.item.id);
+          console.log("Bonus IDs:", firstItem.item.bonusIds || firstItem.item.bonus_id);
+          console.log("Enchant ID:", firstItem.item.enchantId || firstItem.item.enchant_id);
+          console.log("Gem IDs:", firstItem.item.gemIds || firstItem.item.gem_id);
+        }
+      }
+    } else {
+      console.log("No droptimizer items found in expected location");
+      console.log("Available paths:", Object.keys(data || {}));
+      if(data?.simbot) {
+        console.log("Simbot paths:", Object.keys(data.simbot));
+        if(data.simbot?.meta) {
+          console.log("Meta paths:", Object.keys(data.simbot.meta));
+          if(data.simbot.meta?.rawFormData) {
+            console.log("RawFormData paths:", Object.keys(data.simbot.meta.rawFormData));
+          }
+        }
+      }
+    }
+    
+    // Check for player level
+    const playerLevel = data?.sim?.players?.[0]?.level;
+    console.log("Player level:", playerLevel);
+    
+    // Try to generate links
+    const links = generateLinksFromRaidbotsData(data);
+    console.log(`Generated ${links.size} item links`);
+    
+    return { data, links };
+  } catch(e) {
+    console.error("Failed to parse JSON:", e);
+    return null;
+  }
+}
+
+$("#convert").onclick = ()=> runConvert();
+$("#debug").onclick = ()=> debugRaidbotsData();
+$("#copy").onclick = async ()=>{ 
+  const success = await copyToClipboardWithToast($("#out").value);
+  if(success) {
+    $("#copy").textContent="Copied!"; 
+    setTimeout(()=>$("#copy").textContent="Copy output",900);
+  }
+};
+$("#download").onclick = ()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([$("#out").value||""],{type:"text/plain"})); a.download="wishlist.simwish.txt"; a.click(); URL.revokeObjectURL(a.href); };
+</script>
+  </body>
+</html>

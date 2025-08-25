@@ -1,0 +1,8 @@
+## Interface: 110000
+## Title: SimWishlist
+## Notes: SIMWISH importer with grouped dungeon view and item buttons
+## Author: imperial64
+## Version: 0.9.8
+## SavedVariables: SimWishlistDB
+
+SimWishlist.lua
